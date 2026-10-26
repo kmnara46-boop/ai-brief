@@ -224,8 +224,18 @@ function drawSync(){const el=document.getElementById('syncbox');if(!el)return;el
 function syncHTML(){const s=SYNC;const st={off:['꺼짐','var(--muted)'],idle:['연결됨','var(--sub)'],busy:['동기화 중…','var(--accent)'],ok:['동기화 완료','var(--ok)'],err:['오류','var(--issue)']}[s.state];
   return `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><b>기기 간 동기화</b><span class="lab" style="color:${st[1]};background:var(--chip)">${st[0]}</span>${s.last?`<span style="color:var(--muted);font-size:13.5px">마지막 ${s.last.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})}</span>`:''}</div>
   <p style="color:var(--sub);font-size:14.5px;margin:8px 0 12px">${s.cfg?'PC와 휴대폰의 확인 기록이 자동으로 맞춰져요. 체크하면 1초 뒤 저장되고, 사이트를 열 때마다 다른 기기 기록을 불러와요.':'동기화 코드를 한 번 붙여넣으면 이 기기의 확인 기록이 다른 기기와 자동으로 맞춰져요.'}${s.msg?`<br><span style="color:var(--issue)">${s.msg}</span>`:''}</p>
-  ${s.cfg?`<div class="btns" style="margin:0"><button class="btn" onclick="SYNC.run(true)">지금 동기화</button><button class="btn" onclick="if(confirm('이 기기의 동기화를 끌까요? (기록은 남아요)')){SYNC.save(null);drawSync()}">이 기기 연결 해제</button></div>`
+  ${s.cfg?`<div class="btns" style="margin:0"><button class="btn" onclick="SYNC.run(true)">지금 동기화</button><button class="btn" onclick="showQR()">다른 기기 연결 (QR)</button><button class="btn" onclick="if(confirm('이 기기의 동기화를 끌까요? (기록은 남아요)')){SYNC.save(null);drawSync()}">이 기기 연결 해제</button></div>`
   :`<div style="display:flex;gap:8px;flex-wrap:wrap"><input id="synccode" placeholder="동기화 코드 붙여넣기" style="flex:1;min-width:200px;font:inherit;font-size:15px;padding:8px 12px;border-radius:8px;border:1px solid var(--line2);background:var(--card);color:var(--text)"><button class="btn" onclick="connectSync()">연결</button></div>`}`}
+function syncCode(){return 'AIB-'+btoa(unescape(encodeURIComponent(JSON.stringify(SYNC.cfg))))}
+function loadQRLib(){return new Promise((ok,no)=>{if(window.qrcode)return ok();const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js';s.onload=ok;s.onerror=no;document.head.appendChild(s)})}
+async function showQR(){if(!SYNC.cfg)return;const url=location.origin+location.pathname+'#sync='+syncCode();
+  try{await loadQRLib()}catch(e){alert('QR을 불러오지 못했어요. 인터넷 연결을 확인해 주세요.');return}
+  const q=qrcode(0,'M');q.addData(url);q.make();
+  const d=document.createElement('div');d.id='qrdlg';d.style.cssText='position:fixed;inset:0;z-index:99;background:rgba(0,0,0,.6);display:grid;place-items:center;padding:20px';
+  d.innerHTML='<div style="background:#fff;color:#111;border-radius:16px;padding:24px;max-width:360px;text-align:center"><b style="font-size:19px">휴대폰 카메라로 찍어주세요</b><p style="font-size:14.5px;color:#555;margin:8px 0 14px">열리는 페이지에서 자동으로 연결돼요.<br>이 QR은 열쇠라서 다른 사람에게 보여주지 마세요.</p>'+q.createImgTag(6,8)+'<div style="margin-top:14px"><button class="btn" style="background:#111;color:#fff;border:0" onclick="document.getElementById(\'qrdlg\').remove()">닫기</button></div></div>';
+  d.onclick=e=>{if(e.target===d)d.remove()};document.body.appendChild(d)}
+function linkFromHash(){const m=location.hash.match(/^#sync=(AIB-[A-Za-z0-9+/=%]+)/);if(!m)return;try{const c=JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(m[1]).replace(/^AIB-/,'')))));if(c.o&&c.r&&c.t){SYNC.save(c);history.replaceState(null,'',location.pathname+'#progress');setTimeout(()=>alert('이 기기가 동기화에 연결됐어요. 이제 확인 기록이 다른 기기와 자동으로 맞춰져요.'),300)}}catch(e){history.replaceState(null,'',location.pathname)}}
+linkFromHash();
 function connectSync(){const v=(document.getElementById('synccode').value||'').trim();try{const c=JSON.parse(decodeURIComponent(escape(atob(v.replace(/^AIB-/,'')))));if(!c.o||!c.r||!c.t)throw 0;SYNC.save(c);SYNC.run(true)}catch(e){alert('코드가 올바르지 않아요. 다시 확인해 주세요.')}}
 addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')SYNC.run(false)});
 addEventListener('focus',()=>SYNC.run(false));
